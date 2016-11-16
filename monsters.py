@@ -384,63 +384,84 @@ np.savetxt('submission.csv', submission, '%s', delimiter=',', header='id,type', 
 # ## Public LB Score
 # This submission scored 0.73724 on the public leader board. Lets see if we can tune XGBoost and do better.
 
-# In[72]:
+# In[91]:
 
 space = [
-    (.01, .5, 'log-uniform'), # eta
+    (.001, .5, 'log-uniform'), # eta aka learning_rate
     (0, .5), # gamma
     (3, 26), # max depth
     (1, 101), # min child weight
     (.5, 1.0), # subsample
     (.5, 1.0), # colsample by tree
-    (0, 1.0), # lambda
-    (0, 1.0), #alpha
-    (20, 500),
+    (0, 1.0), # lambda aka reg_lambda
+    (0, 1.0), # alpha aka reg_alpha
+    (20, 500), # num_estimators aka num_boosting_rounds
 ]
 
 
-# In[71]:
+# In[87]:
 
 def objective(params):
     params = dict(zip(['learning_rate', 'gamma', 'max_depth', 'min_child_weight', 'subsample', 'colsample_bytree', 'reg_lambda', 'reg_alpha', 'n_estimators'], params))
     clf = xgb.XGBClassifier(seed=92016, **params)
-    score = cross_val_score(clf, X_all_train, y, scoring='accuracy', cv=10, verbose=2).mean()
+    score = cross_val_score(clf, X_all_train, y, scoring='accuracy', cv=10).mean()
     return -score
 
 
-# In[ ]:
+# In[76]:
 
 skopt_res = gbrt_minimize(objective, space, n_calls=100, random_state=92016)
 print("Best score=%.4f" % skopt_res.fun)
 print('Best params: ', dict(zip(['learning_rate', 'gamma', 'max_depth', 'min_child_weight', 'subsample', 'colsample_bytree', 'reg_lambda', 'reg_alpha', 'n_estimators'], skopt_res.x)))
 
 
-# In[70]:
+# In[86]:
 
-best = {'colsample_bytree': 0.78536986002695275, 'n_estimators': 194, 'max_depth': 8, 'min_child_weight': 13, 'reg_lambda': 1, 'reg_alpha': 1, 'learning_rate': 0.033367673540731092, 'gamma': 0, 'subsample': 0.98593577888801953}
+best = {'reg_alpha': 0, 'subsample': 0.65328850922043014, 'n_estimators': 110, 'colsample_bytree': 0.98301389079401447, 'gamma': 0, 'min_child_weight': 31, 'reg_lambda': 1, 'learning_rate': 0.011231056984254178, 'max_depth': 4}
 clf = xgb.XGBClassifier(**best)
-clf.fit(X_train, y_train)
+clf.fit(X_all_train, y)
 pred = clf.predict(X_test)
-accuracy_score(y_test, pred)
-
-
-# In[72]:
-
-best = {'colsample_bytree': 0.68947090740282413, 'n_estimators': 107, 'max_depth': 24, 'min_child_weight': 6, 'reg_lambda': 0, 'reg_alpha': 1, 'learning_rate': 0.024284981196906769, 'gamma': 0, 'subsample': 0.7282635075593813}
-clf = OneVsOneClassifier(xgb.XGBClassifier(**best))
-clf.fit(X, y)
-
-
-# In[73]:
-
-preds = clf.predict(test_poly)
-
-
-# In[74]:
-
 submission = np.hstack((np.reshape(test.id.values, (test.id.values.shape[0], 1)), np.reshape(preds, (preds.shape[0], 1))))
 np.savetxt('submission_xgb.csv', submission, '%s', delimiter=',', header='id,type', comments='')
 
+
+# ## Didn't do better
+# This scored 0.72023 on the public leader board. XGBoost didn't do better lets try again, but remove the color features.
+
+# In[88]:
+
+X = poly_features
+X_all_train = X[:train.shape[0], :]
+X_submit = X[train.shape[0]:, :]
+y = train['type'].values
+X_train, X_test, y_train, y_test = train_test_split(X_all_train, y, stratify=y, test_size=0.1, random_state=92016)
+
+
+# In[90]:
+
+def objective(params):
+    params = dict(zip(['learning_rate', 'gamma', 'max_depth', 'min_child_weight', 'subsample', 'colsample_bytree', 'reg_lambda', 'reg_alpha', 'n_estimators'], params))
+    clf = xgb.XGBClassifier(seed=92016, **params)
+    score = cross_val_score(clf, X_all_train, y, scoring='accuracy', cv=10).mean()
+    return -score
+
+skopt_res = gbrt_minimize(objective, space, n_calls=500, random_state=92016)
+print("Best score=%.4f" % skopt_res.fun)
+print('Best params: ', dict(zip(['learning_rate', 'gamma', 'max_depth', 'min_child_weight', 'subsample', 'colsample_bytree', 'reg_lambda', 'reg_alpha', 'n_estimators'], skopt_res.x)))
+
+
+# In[92]:
+
+best = {'reg_alpha': 0, 'subsample': 0.55191635139568851, 'n_estimators': 213, 'colsample_bytree': 0.58118442389341829, 'gamma': 0, 'min_child_weight': 17, 'reg_lambda': 0, 'learning_rate': 0.011979387427668062, 'max_depth': 17}
+clf = xgb.XGBClassifier(**best)
+clf.fit(X_all_train, y)
+pred = clf.predict(X_test)
+submission = np.hstack((np.reshape(test.id.values, (test.id.values.shape[0], 1)), np.reshape(preds, (preds.shape[0], 1))))
+np.savetxt('submission_xgb_nocolors.csv', submission, '%s', delimiter=',', header='id,type', comments='')
+
+
+# ## Still no dice
+# The above scored 0.72023 on the public leader board so still not an improvement. It looks like LogisticRegression wins.
 
 # In[ ]:
 
