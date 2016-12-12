@@ -30,6 +30,13 @@ np.random.seed(92016)
 get_ipython().magic('matplotlib inline')
 
 
+# # What is a model?
+# A quick aside before we get started. Lets get some intuition about what these models are doing on a fundamental level.
+# 
+# ![decision surface](https://jaquesgrobler.github.io/Online-Scikit-Learn-stat-tut/_images/plot_iris_11.png)
+# 
+# The model is trying to learn a decision boundary that separates the data into the different classes. The image above is from the classic [Iris dataset](https://en.wikipedia.org/wiki/Iris_flower_data_set).
+
 # # Data analysis
 # The first step in a machine learning project is to load the data and get a sense for what we are looking at.
 
@@ -55,13 +62,13 @@ train.head()
 test.head()
 
 
-# In[7]:
+# In[5]:
 
 features = train.columns[1:-1]
 numeric_features = features[:-1]
 
 
-# In[8]:
+# In[6]:
 
 print(features)
 print(numeric_features)
@@ -82,7 +89,7 @@ print(numeric_features)
 # ### Graphing
 # We can graph these continuous features against the categorical features to try and find patterns in the data to help us with our predictions. Lets look at the distributions of the numeric variables. To start, lets make some scatter plots and distributions.
 
-# In[8]:
+# In[7]:
 
 sns.pairplot(train[['bone_length', 'rotting_flesh', 'hair_length', 'has_soul']])
 
@@ -232,13 +239,13 @@ sns.factorplot(x='has_soul', y='color', col='type', data=train, kind='violin')
 # 
 # The indices of the OHE vector correspond to the numeral encoding of the label. So in this example, the position for "1" is hot and all others are 0. The indexes start at the left `[0, 1, 2, 3, 4, 5]`.
 
-# In[9]:
+# In[8]:
 
 # Stack the train and test data vertically to prepare features
 all_data = pd.concat((train, test), ignore_index=True)
 
 
-# In[54]:
+# In[9]:
 
 # Label encode and one hot encode the colors
 color_le = LabelEncoder()
@@ -253,7 +260,7 @@ colors.shape
 # ## Create feature interaction of degree 3
 # If we have 3 features like x, y, and z this will output `x + y + z + x*y + x*z + y*z + x*y*z`. So our original 4 numeric features will be returned plus new features that are the multiplications of those 4 original features. If `include_bias` is `True` it will also output a 1, which we don't want. Setting `interaction_only=True` stops `PolynomialFeatures` from including things like `x*x`.
 
-# In[32]:
+# In[10]:
 
 poly = PolynomialFeatures(degree=3, include_bias=False, interaction_only=True)
 poly.fit(all_data[numeric_features])
@@ -264,7 +271,7 @@ poly_features.shape
 # ## Now stack polynomial and color features
 # Now we add the one hot encoded colors to the polynomial features and split the data back into training and test data. At this point everything is numpy arrays and we are out of Pandas DataFrames.
 
-# In[50]:
+# In[11]:
 
 X = np.hstack((poly_features, colors))
 X_all_train = X[:train.shape[0], :]
@@ -273,7 +280,7 @@ y = train['type'].values
 X_train, X_test, y_train, y_test = train_test_split(X_all_train, y, stratify=y, test_size=0.1, random_state=92016)
 
 
-# In[51]:
+# In[12]:
 
 classifiers = [
     ('rf-300', RandomForestClassifier(n_estimators=300, random_state=92016, n_jobs=-1)),
